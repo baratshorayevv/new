@@ -48,3 +48,32 @@ class Order(models.Model):
 
     def __str__(self):
         return f'{self.customer}. {self.product}. {self.quantity}'
+
+
+
+from .bad_words import BAD_WORDS
+
+class Comment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        for word in BAD_WORDS:
+            if word in self.content.lower():
+                raise ValidationError('Comment contains inappropriate language.')
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super(Comment, self).save(*args, **kwargs)
+
+
+
+
+@receiver(pre_save, sender=Comment)
+def check_bad_words(sender, instance, **kwargs):
+    for word in BAD_WORDS:
+        if word in instance.content.lower():
+            instance.user.is_active = False
+            instance.user.save()
+            raise ValidationError("Your comment contains inappropriate language, and your account has been deactivated.")
